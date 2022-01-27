@@ -35,11 +35,11 @@ resource "kubernetes_namespace" "jmeter-namespace" {
 resource "kubernetes_pod" "master" {
 
   metadata {
-    name      = var.master_deployment_name
+    name      = "${var.PREFIX}-controller"
     namespace = var.namespace
     labels = merge(
       {
-        instance  = var.master_deployment_name
+        instance  = "${var.PREFIX}-controller"
         component = "master"
       },
       local.labels,
@@ -58,12 +58,13 @@ resource "kubernetes_pod" "master" {
 
   spec {
 
+    restart_policy = "Never"
     container {
       image             = "${var.image}:${var.image_version}"
       name              = "jmeter-master"
       image_pull_policy = "IfNotPresent"
 
-      args = ["master"]
+      args = [" -Jserver.rmi.ssl.disable=true "]
 
       resources {
         limits = {
@@ -76,6 +77,10 @@ resource "kubernetes_pod" "master" {
         }
       }
 
+      env {
+        name  = "CONF_EXEC_IS_SLAVE"
+        value = "true"
+      }
       dynamic "env" {
         for_each = var.master_envs
 
@@ -95,7 +100,7 @@ resource "kubernetes_pod" "master" {
 
         content {
           name       = "data"
-          mount_path = "/data"
+          mount_path = "/jmeter/project"
         }
       }
     }
@@ -116,14 +121,15 @@ resource "kubernetes_pod" "master" {
 }
 
 
-resource "kubernetes_deployment" "slave" {
+resource "kubernetes_pod" "slave" {
 
+  count = var.JMETER_WORKERS_COUNT
   metadata {
-    name      = var.slave_deployment_name
+    name      = "${var.PREFIX}-worker${count.index}"
     namespace = var.namespace
     labels = merge(
       {
-        instance  = var.slave_deployment_name
+        instance  = "${var.PREFIX}-worker${count.index}"
         component = "slave"
       },
       local.labels,
@@ -139,96 +145,71 @@ resource "kubernetes_deployment" "slave" {
   }
 
   spec {
-    replicas = var.slave_replicas
 
-    selector {
-      match_labels = {
-        selector = "jmeter-slave-${random_string.selector.result}"
-      }
-    }
+    restart_policy = "Never"
+    container {
+      image             = "${var.image}:${var.image_version}"
+      name              = "jmeter-slave"
+      image_pull_policy = "IfNotPresent"
 
-    template {
-      metadata {
-        labels = merge(
-          {
-            instance  = var.slave_deployment_name
-            component = "slave"
-          },
-          local.labels,
-          var.labels,
-          var.slave_deployment_template_labels,
-          {
-            selector = "jmeter-slave-${random_string.selector.result}"
-          }
-        )
-        annotations = merge(
-          local.annotations,
-          var.annotations,
-          var.slave_deployment_template_annotations
-        )
-      }
+      args = [" -Jserver.rmi.ssl.disable=true "]
 
-      spec {
-
-        container {
-          image             = "${var.image}:${var.image_version}"
-          name              = "jmeter-slave"
-          image_pull_policy = "IfNotPresent"
-
-          args = ["server"]
-
-          resources {
-            limits = {
-              cpu    = var.slave_resources_limits_cpu
-              memory = var.slave_resources_limits_memory
-            }
-            requests = {
-              cpu    = var.slave_resources_requests_cpu
-              memory = var.slave_resources_requests_memory
-            }
-          }
-
-          dynamic "env" {
-            for_each = var.slave_envs
-
-            content {
-              name  = env.key
-              value = env.value
-            }
-          }
-
-          port {
-            name           = "rmi"
-            container_port = 50000
-          }
-
-          port {
-            name           = "slave"
-            container_port = 1099
-          }
-
-          dynamic "volume_mount" {
-            for_each = var.pvc_access_modes.0 == "ReadWriteMany" ? ["1"] : []
-
-            content {
-              name       = "data"
-              mount_path = "/data"
-            }
-          }
+      resources {
+        limits = {
+          cpu    = var.slave_resources_limits_cpu
+          memory = var.slave_resources_limits_memory
         }
+        requests = {
+          cpu    = var.slave_resources_requests_cpu
+          memory = var.slave_resources_requests_memory
+        }
+      }
 
-        dynamic "volume" {
-          for_each = var.pvc_access_modes.0 == "ReadWriteMany" ? ["1"] : []
+      env {
+        name  = "CONF_EXEC_IS_SLAVE"
+        value = "true"
+      }
 
-          content {
-            name = "data"
-            persistent_volume_claim {
-              claim_name = kubernetes_persistent_volume_claim.this.metadata.0.name
-            }
-          }
+      dynamic "env" {
+        for_each = var.slave_envs
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      port {
+        name           = "rmi"
+        container_port = 50000
+      }
+
+      port {
+        name           = "slave"
+        container_port = 1099
+      }
+
+      dynamic "volume_mount" {
+        for_each = var.pvc_access_modes.0 == "ReadWriteMany" ? ["1"] : []
+
+        content {
+          name       = "data"
+          mount_path = "/jmeter/project"
         }
       }
     }
+
+    dynamic "volume" {
+      for_each = var.pvc_access_modes.0 == "ReadWriteMany" ? ["1"] : []
+
+      content {
+        name = "data"
+        persistent_volume_claim {
+          claim_name = kubernetes_persistent_volume_claim.this.metadata.0.name
+        }
+      }
+    }
+
   }
 }
 
@@ -274,13 +255,14 @@ resource "kubernetes_persistent_volume_claim" "this" {
 # Service
 #####
 
-resource "kubernetes_service" "this" {
+resource "kubernetes_service" "service_workers" {
+  count = var.JMETER_WORKERS_COUNT
   metadata {
-    name      = var.service_name
+    name      = "${var.PREFIX}-service-worker${count.index}"
     namespace = var.namespace
     labels = merge(
       {
-        instance  = var.service_name
+        instance  = "${var.PREFIX}-service-worker${count.index}"
         component = "network"
       },
       local.labels,
@@ -296,12 +278,7 @@ resource "kubernetes_service" "this" {
   }
   spec {
     selector = {
-      selector = "jmeter-slave-${random_string.selector.result}"
-    }
-    port {
-      name        = "rmi"
-      port        = 50000
-      target_port = "rmi"
+      instance = "${var.PREFIX}-worker${count.index}"
     }
 
     port {

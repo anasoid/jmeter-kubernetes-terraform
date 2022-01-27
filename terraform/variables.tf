@@ -2,6 +2,13 @@
 # Global
 #####
 
+variable "PREFIX" {
+  type        = string
+  description = "Prefix all name"
+  default     = "jmeter"
+}
+
+
 variable "annotations" {
   description = "Map of annotations to apply on all kubernetes resources."
   default     = {}
@@ -21,11 +28,6 @@ variable "namespace" {
 #####
 # Deployment Master
 #####
-
-variable "master_deployment_name" {
-  description = "Name of the master's deployment that is created."
-  default     = "jmeter-master"
-}
 
 variable "master_deployment_labels" {
   description = "Map of labels that will be applied on the master's deployment."
@@ -47,20 +49,11 @@ variable "master_deployment_template_annotations" {
   default     = {}
 }
 
-variable "master_replicas" {
-  description = "Number of master pod replicas that are always up and available"
-  default     = 1
-}
-
 
 #####
 # Deployment Slave
 #####
 
-variable "slave_deployment_name" {
-  description = "Name of the slave's deployment that is created."
-  default     = "jmeter-slave"
-}
 
 variable "slave_deployment_labels" {
   description = "Map of labels that will be applied on the slave's deployment."
@@ -82,9 +75,9 @@ variable "slave_deployment_template_annotations" {
   default     = {}
 }
 
-variable "slave_replicas" {
-  description = "Number of slave pod replicas that are always up and available"
-  default     = 3
+variable "JMETER_WORKERS_COUNT" {
+  description = "Number of workers"
+  default     = 2
 }
 
 
@@ -198,18 +191,12 @@ variable "pvc_wait_until_bound" {
 
 variable "pvc_access_modes" {
   description = "A set of the desired access modes the volume should have."
-  default     = ["ReadWriteOnce"]
+  default     = ["ReadWriteMany"]
 }
 
 #####
 # Service
 #####
-
-variable "service_name" {
-  description = "Name of the service that is created."
-  default     = "jmeter-slaves"
-}
-
 variable "service_labels" {
   description = "Map of labels that will be applied on the service."
   default     = {}
