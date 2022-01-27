@@ -206,3 +206,90 @@ variable "service_annotations" {
   description = "Map of annotations that will be applied on the annotation."
   default     = {}
 }
+
+
+
+
+variable "JMETER_JMX_FILE" {
+  type        = string
+  description = "JMX file"
+}
+
+variable "JMETER_RESULTS_FILE" {
+  type    = string
+  default = "results.jtl"
+}
+
+variable "JMETER_DASHBOARD_FOLDER" {
+  type    = string
+  default = "dashboard"
+}
+
+variable "JMETER_EXTRA_CLI_ARGUMENTS" {
+  type        = string
+  default     = ""
+  description = "Arguments add custom environement variable"
+}
+
+variable "JMETER_PIPELINE_CLI_ARGUMENTS" {
+  type        = string
+  default     = ""
+  description = "Arguments add by pipeline, not by custom environement variable"
+}
+
+#Docker config
+
+
+variable "JMETER_MASTER_JVM_ARGS" {
+  type    = string
+  default = "-Xmx256M -Xms256M"
+}
+
+variable "JMETER_SLAVE_JVM_ARGS" {
+  type    = string
+  default = "-Xmx256M -Xms256M"
+}
+variable "JMETER_PROPERTIES_FILES" {
+  type    = string
+  default = ""
+}
+
+variable "JMETER_CONF_CSV_DIVIDED_TO_OUT" {
+  type    = string
+  default = "true"
+}
+
+variable "JMETER_CONF_CSV_WITH_HEADER" {
+  type    = string
+  default = "true"
+}
+
+variable "JMETER_CONF_CSV_SPLIT_PATTERN" {
+  type    = string
+  default = "**_split.csv"
+}
+
+variable "JMETER_CONF_CSV_SPLIT" {
+  type    = string
+  default = "true"
+}
+
+variable "JMETER_CONF_EXEC_TIMEOUT" {
+  type    = string
+  default = "true"
+}
+
+variable "JMETER_CONF_COPY_TO_WORKSPACE" {
+  type    = string
+  default = "true"
+}
+variable "JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX" {
+  type    = string
+  default = "true"
+}
+
+variable "JMETER_PLUGINS_MANAGER_INSTALL_LIST" {
+  type    = string
+  default = ""
+}
+

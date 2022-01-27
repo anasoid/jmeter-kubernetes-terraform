@@ -11,7 +11,35 @@ locals {
     part-of    = "jmeter"
   }
   port = 60000
+
+  jmeter_envs = {
+    CONF_EXEC_WORKER_COUNT                 = var.JMETER_WORKERS_COUNT
+    JMETER_EXIT                            = "true"
+    JMETER_JMX                             = var.JMETER_JMX_FILE
+    JMETER_PROPERTIES_FILES                = var.JMETER_PROPERTIES_FILES
+    CONF_CSV_DIVIDED_TO_OUT                = var.JMETER_CONF_CSV_DIVIDED_TO_OUT
+    CONF_CSV_WITH_HEADER                   = var.JMETER_CONF_CSV_WITH_HEADER
+    CONF_CSV_SPLIT_PATTERN                 = var.JMETER_CONF_CSV_SPLIT_PATTERN
+    CONF_CSV_SPLIT                         = var.JMETER_CONF_CSV_SPLIT
+    CONF_EXEC_TIMEOUT                      = var.JMETER_CONF_EXEC_TIMEOUT
+    CONF_COPY_TO_WORKSPACE                 = var.JMETER_CONF_COPY_TO_WORKSPACE
+    JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX = var.JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX
+    JMETER_PLUGINS_MANAGER_INSTALL_LIST    = var.JMETER_PLUGINS_MANAGER_INSTALL_LIST
+    CONF_READY_WAIT_FILE                   = var.JMETER_JMX_FILE
+  }
+
+  jmeter_master_envs = {
+    JMETER_JVM_ARGS = var.JMETER_MASTER_JVM_ARGS
+
+  }
+  jmeter_slave_envs = {
+    CONF_EXEC_IS_SLAVE = "true"
+    JMETER_JVM_ARGS    = var.JMETER_SLAVE_JVM_ARGS
+  }
+
+
 }
+
 
 #####
 # Randoms
@@ -80,6 +108,24 @@ resource "kubernetes_pod" "master" {
       env {
         name  = "CONF_EXEC_IS_SLAVE"
         value = "true"
+      }
+
+      # common envs
+      dynamic "env" {
+        for_each = local.jmeter_envs
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = local.jmeter_master_envs
+
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       dynamic "env" {
         for_each = var.master_envs
@@ -166,10 +212,27 @@ resource "kubernetes_pod" "slave" {
       }
 
       env {
-        name  = "CONF_EXEC_IS_SLAVE"
-        value = "true"
+        name  = "CONF_EXEC_WORKER_NUMBER"
+        value = count.index
       }
 
+      # common envs
+      dynamic "env" {
+        for_each = local.jmeter_envs
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = local.jmeter_slave_envs
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       dynamic "env" {
         for_each = var.slave_envs
 
