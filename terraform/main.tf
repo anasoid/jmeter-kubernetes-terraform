@@ -92,7 +92,7 @@ resource "kubernetes_pod" "master" {
       name              = "jmeter-master"
       image_pull_policy = "IfNotPresent"
 
-      args = [" -Jserver.rmi.ssl.disable=true "]
+      args = [" -Jserver.rmi.ssl.disable=true  -R ${join(",", [for s in kubernetes_service.service_workers.*.metadata.0.name : "${s}.${var.namespace}"])} ${var.JMETER_EXTRA_CLI_ARGUMENTS} ${var.JMETER_PIPELINE_CLI_ARGUMENTS}"]
 
       resources {
         limits = {
@@ -103,11 +103,6 @@ resource "kubernetes_pod" "master" {
           cpu    = var.master_resources_requests_cpu
           memory = var.master_resources_requests_memory
         }
-      }
-
-      env {
-        name  = "CONF_EXEC_IS_SLAVE"
-        value = "true"
       }
 
       # common envs
