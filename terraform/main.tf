@@ -89,7 +89,7 @@ resource "kubernetes_pod" "master" {
     restart_policy = "Never"
     container {
       image             = "${var.image}:${var.image_version}"
-      name              = "jmeter-master"
+      name              = "jmeter"
       image_pull_policy = "IfNotPresent"
 
       args = [" -Jserver.rmi.ssl.disable=true  -R ${join(",", [for s in kubernetes_service.service_workers.*.metadata.0.name : "${s}.${var.namespace}"])} ${var.JMETER_EXTRA_CLI_ARGUMENTS} ${var.JMETER_PIPELINE_CLI_ARGUMENTS}"]
@@ -144,8 +144,42 @@ resource "kubernetes_pod" "master" {
           mount_path = "/jmeter/project"
         }
       }
+      volume_mount {
+        name       = "out"
+        mount_path = "/jmeter/out"
+
+      }
+    }
+    container {
+      image             = "busybox"
+      name              = "keepalive"
+      image_pull_policy = "IfNotPresent"
+
+      command = ["/bin/sh", "-c", "sleep 3600"]
+      resources {
+        limits = {
+          cpu    = "100m"
+          memory = "64Mi"
+        }
+        requests = {
+          cpu    = "10m"
+          memory = "32Mi"
+        }
+      }
+      volume_mount {
+        name       = "out"
+        mount_path = "/jmeter/out"
+
+      }
+
     }
 
+    volume {
+      name = "out"
+      empty_dir {
+
+      }
+    }
     dynamic "volume" {
       for_each = var.pvc_access_modes.0 == "ReadWriteMany" ? ["1"] : []
 
@@ -190,7 +224,7 @@ resource "kubernetes_pod" "slave" {
     restart_policy = "Never"
     container {
       image             = "${var.image}:${var.image_version}"
-      name              = "jmeter-slave"
+      name              = "jmeter"
       image_pull_policy = "IfNotPresent"
 
       args = [" -Jserver.rmi.ssl.disable=true "]

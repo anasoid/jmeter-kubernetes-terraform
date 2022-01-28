@@ -29,7 +29,10 @@ output "jmeter_workers" {
 
 
 
-output "service_slaves" {
-  value = join(" ", [for s in kubernetes_service.service_workers.*.metadata.0.name : "${s}.${var.namespace}"])
+output "jmeter_workers_names" {
+  value = join(" ",  "${kubernetes_pod.slave.*.metadata.0.name}")
 }
 
+output "jmeter_contoller_name" {
+  value = "${kubernetes_pod.master.metadata.0.name}"
+}
