@@ -207,9 +207,6 @@ variable "service_annotations" {
   default     = {}
 }
 
-
-
-
 variable "JMETER_JMX_FILE" {
   type        = string
   description = "JMX file"
@@ -276,7 +273,7 @@ variable "JMETER_CONF_CSV_SPLIT" {
 
 variable "JMETER_CONF_EXEC_TIMEOUT" {
   type    = string
-  default = "true"
+  default = "7200"
 }
 
 variable "JMETER_CONF_COPY_TO_WORKSPACE" {

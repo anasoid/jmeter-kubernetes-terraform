@@ -2,9 +2,6 @@ output "deployment_master" {
   value = kubernetes_pod.master
 }
 
-output "persistent_volume_claim" {
-  value = kubernetes_persistent_volume_claim.this
-}
 
 output "service" {
   value = kubernetes_service.service_workers
@@ -28,11 +25,15 @@ output "jmeter_workers" {
 }
 
 
+output "namespace" {
+  value = var.namespace
+}
+
 
 output "jmeter_workers_names" {
-  value = join(" ",  "${kubernetes_pod.slave.*.metadata.0.name}")
+  value = join(" ", "${kubernetes_pod.slave.*.metadata.0.name}")
 }
 
 output "jmeter_contoller_name" {
-  value = "${kubernetes_pod.master.metadata.0.name}"
+  value = kubernetes_pod.master.metadata.0.name
 }
