@@ -4,3 +4,4 @@ terraform/.terraform.lock.hcl
 terraform/.terraform
 draft
 terraform/.terraform.tfstate.lock.info
+out

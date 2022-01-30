@@ -153,12 +153,12 @@ resource "kubernetes_pod" "master" {
       command = ["/bin/sh", "-c", "sleep 3600"]
       resources {
         limits = {
-          cpu    = "100m"
-          memory = "64Mi"
+          cpu    = "50m"
+          memory = "32Mi"
         }
         requests = {
           cpu    = "10m"
-          memory = "32Mi"
+          memory = "16Mi"
         }
       }
       volume_mount {
@@ -229,6 +229,11 @@ resource "kubernetes_pod" "slave" {
         name  = "CONF_EXEC_WORKER_NUMBER"
         value = count.index
       }
+      env {
+        name  = "JMETER_LOG_FILE"
+        value = "jmeter-${count.index}.log"
+      }
+
 
       # common envs
       dynamic "env" {

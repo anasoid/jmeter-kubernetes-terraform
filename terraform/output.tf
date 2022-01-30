@@ -34,6 +34,6 @@ output "jmeter_workers_names" {
   value = join(" ", "${kubernetes_pod.slave.*.metadata.0.name}")
 }
 
-output "jmeter_contoller_name" {
+output "jmeter_controller_name" {
   value = kubernetes_pod.master.metadata.0.name
 }

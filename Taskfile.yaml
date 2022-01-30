@@ -1,0 +1,153 @@
+version: "3"
+
+env:
+  TF_VAR_JMETER_WORKERS_COUNT: 2
+  TF_VAR_JMETER_CONF_EXEC_TIMEOUT: 7200
+  TF_VAR_namespace: "jmeter"
+  TF_VAR_JMETER_JMX_FILE: "basic-plan.jmx"
+  TF_VAR_JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX: true
+  TF_VAR_JMETER_PIPELINE_CLI_ARGUMENTS: " -Jblazemeter.upload.token:7 "
+  JMETER_DIRECTORY_INPUT: ../draft/project
+  JMETER_DIRECTORY_OUTPUT: ../out
+output: prefixed
+
+tasks:
+  main-task:
+    cmds:
+      - task: prepare
+      - task: copy-project
+      - task: wait-test-follow
+      - task: get-result-controller
+      - task: display-pod-logs
+      - task: get-logs-workers
+
+  validate:
+    desc: validate Terraform
+    dir: ./terraform
+    cmds:
+      - terraform validate
+
+  prepare:
+    desc: apply Terraform
+    dir: ./terraform
+    deps: [validate]
+    cmds:
+      - terraform apply  -auto-approve -input=false -lock=false
+
+  copy-project:
+    desc: copy project to
+    dir: ./terraform
+    cmds:
+      - |
+        PROJECT_FOLDER=$JMETER_DIRECTORY_INPUT
+        NAME_SPACE=$(terraform output --raw namespace)
+        CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+        WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+        echo "Start Copying Project"
+        echo "-----------------------------------------------------------------------------------------------------------------------------"
+
+        for instance in $WORKER_NAMES $CONTROLLER_NAME; do
+            echo "-----------------------------------------------------------------------------------------------------------------------------"
+            echo "Copy Project to pod : $instance"
+            echo "kubectl cp -n $NAME_SPACE $PROJECT_FOLDER $instance:/jmeter -c jmeter"
+            kubectl cp -v 0 -n $NAME_SPACE -c jmeter $PROJECT_FOLDER $instance:/jmeter 
+        done
+        echo "End Copying Project"
+
+  wait-test-follow:
+    desc: wait test to finish using follow
+    dir: ./terraform
+    cmds:
+      - |
+        NAME_SPACE=$(terraform output --raw namespace)
+        CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+        echo "$(date): Started!"
+        kubectl logs -n $NAME_SPACE -c jmeter -f $CONTROLLER_NAME
+        echo "$(date): End!"
+
+
+
+  wait-test:
+    desc: wait test to finish
+    dir: ./terraform
+    cmds:
+      - |
+        NAME_SPACE=$(terraform output --raw namespace)
+        CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+        echo "$(date): Started!"
+        while [ $(kubectl get pods -n $NAME_SPACE $CONTROLLER_NAME -o=jsonpath='{.status.containerStatuses[0].state}' | jq -j '. | to_entries | .[] | "\(.key)"') == "running" ]; do
+          echo "$(date): Still Running...$CONTROLLER_NAME"
+          sleep 20
+        done
+        echo "$(date): End!"
+
+        exitcode=$(kubectl get pods -n $NAME_SPACE $CONTROLLER_NAME -o=jsonpath='{.status.containerStatuses[0].state.terminated.exitCode}')
+        echo "Pod $CONTROLLER_NAME exitcode : $exitcode"
+        if [[ "$exitcode" != "0" ]]; then
+          echo "ERROR exitcode :  $exitcode"
+          exit 1
+        fi
+
+  display-pod-logs:
+    desc: copy project to
+    dir: ./terraform
+    cmds:
+      - |
+        PROJECT_FOLDER=$JMETER_DIRECTORY_INPUT
+        NAME_SPACE=$(terraform output --raw namespace)
+        CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+        WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+        echo "Start Copying Project"
+        echo "-----------------------------------------------------------------------------------------------------------------------------"
+
+        for instance in $CONTROLLER_NAME $WORKER_NAMES ; do
+            echo "-----------------------------------------------------------------------------------------------------------------------------"
+            echo "Display logs : $instance"
+            echo "kubectl logs -n $NAME_SPACE -c jmeter $instance "
+            kubectl logs -n $NAME_SPACE -c jmeter $instance | ts "[$instance] " 
+        done
+        echo "End Copying Project"
+
+  get-result-controller:
+    desc: get result from controller.
+    dir: ./terraform
+    cmds:
+      - |
+        mkdir -p $JMETER_DIRECTORY_OUTPUT
+        NAME_SPACE=$(terraform output --raw namespace)
+        CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+        echo "Start get Result"
+        echo "-----------------------------------------------------------------------------------------------------------------------------"
+
+        for instance in $CONTROLLER_NAME; do
+            echo "-----------------------------------------------------------------------------------------------------------------------------"
+            echo "get Result from pod : $instance"
+            echo "kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT "
+            kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT 
+        done
+        echo "Start get Result"
+
+  get-logs-workers:
+    desc: get logs from workers
+    dir: ./terraform
+    cmds:
+      - |
+        NAME_SPACE=$(terraform output --raw namespace)
+        WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+        echo "Start get Result"
+        echo "-----------------------------------------------------------------------------------------------------------------------------"
+
+        for instance in $WORKER_NAMES; do
+            echo "-----------------------------------------------------------------------------------------------------------------------------"
+            echo "get Result from pod : $instance"
+            echo "kubectl cp -v 0 -n $NAME_SPACE -c jmeter $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT "
+            kubectl cp -v 0 -n $NAME_SPACE -c jmeter $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT 
+        done
+        echo "Start get Result"
+
+  destroy:
+    desc: destroy Terraform
+    dir: ./terraform
+    ignore_error: true
+    cmds:
+      - terraform destroy -auto-approve -input=false -lock=false
