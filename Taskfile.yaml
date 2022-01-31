@@ -35,6 +35,12 @@ tasks:
       - terraform apply  -auto-approve -input=false -lock=false
 
   copy-project:
+    cmds:
+      - task: copy-project-workers
+      - task: wait-workers-ready
+      - task: copy-project-controller
+
+  copy-project-workers:
     desc: copy project to
     dir: ./terraform
     cmds:
@@ -46,7 +52,56 @@ tasks:
         echo "Start Copying Project"
         echo "-----------------------------------------------------------------------------------------------------------------------------"
 
-        for instance in $WORKER_NAMES $CONTROLLER_NAME; do
+        for instance in $WORKER_NAMES; do
+            echo "-----------------------------------------------------------------------------------------------------------------------------"
+            echo "Copy Project to pod : $instance"
+            echo "kubectl cp -n $NAME_SPACE $PROJECT_FOLDER $instance:/jmeter -c jmeter"
+            kubectl cp -v 0 -n $NAME_SPACE -c jmeter $PROJECT_FOLDER $instance:/jmeter 
+        done
+        echo "End Copying Project"
+
+  wait-workers-ready:
+    desc: Wait workers to be ready.
+    dir: ./terraform
+    cmds:
+      - |
+        NAME_SPACE=$(terraform output --raw namespace)
+        WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+        allNodeReady="false"
+        while [ $allNodeReady == "false" ]; do
+          allNodeReady="true"
+          for instance in  $WORKER_NAMES; do
+            status=$(kubectl get pods -n $NAME_SPACE $instance -o=jsonpath='{.status.containerStatuses[0].state}' | jq -j '. | to_entries | .[] | "\(.key)"') 
+            started=$(kubectl get pods -n $NAME_SPACE $instance -o=jsonpath='{.status.containerStatuses[0].started}' ) 
+            
+            if [ "$status" == "running" ]; then
+              if [ "$started" != "true" ]; then
+                echo "$(date): Waiting $instance -> status:$status , started:$started"
+                allNodeReady="false"
+              fi
+            else
+              echo "$(date): $instance -> status:$status , started:$started"
+              echo "ERROR-> worker $instance ($status) is not running "  
+              exit 1
+            fi
+          done
+          echo "$(date): Waiting workers to be ready"
+          sleep 10
+        done
+
+  copy-project-controller:
+    desc: copy project to
+    dir: ./terraform
+    cmds:
+      - |
+        PROJECT_FOLDER=$JMETER_DIRECTORY_INPUT
+        NAME_SPACE=$(terraform output --raw namespace)
+        CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+        WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+        echo "Start Copying Project"
+        echo "-----------------------------------------------------------------------------------------------------------------------------"
+
+        for instance in  $CONTROLLER_NAME; do
             echo "-----------------------------------------------------------------------------------------------------------------------------"
             echo "Copy Project to pod : $instance"
             echo "kubectl cp -n $NAME_SPACE $PROJECT_FOLDER $instance:/jmeter -c jmeter"
@@ -64,8 +119,6 @@ tasks:
         echo "$(date): Started!"
         kubectl logs -n $NAME_SPACE -c jmeter -f $CONTROLLER_NAME
         echo "$(date): End!"
-
-
 
   wait-test:
     desc: wait test to finish

@@ -10,7 +10,7 @@ locals {
     name       = "jmeter"
     part-of    = "jmeter"
   }
-  port = 60000
+  port = 1099
 
   jmeter_envs = {
     CONF_EXEC_WORKER_COUNT                 = var.JMETER_WORKERS_COUNT
@@ -150,7 +150,7 @@ resource "kubernetes_pod" "master" {
       name              = "keepalive"
       image_pull_policy = "IfNotPresent"
 
-      command = ["/bin/sh", "-c", "sleep 3600"]
+      command = ["/bin/sh", "-c", "sleep ${var.JMETER_CONF_EXEC_TIMEOUT}"]
       resources {
         limits = {
           cpu    = "50m"
@@ -158,7 +158,7 @@ resource "kubernetes_pod" "master" {
         }
         requests = {
           cpu    = "10m"
-          memory = "16Mi"
+          memory = "8Mi"
         }
       }
       volume_mount {
@@ -263,9 +263,15 @@ resource "kubernetes_pod" "slave" {
 
       port {
         name           = "slave"
-        container_port = 1099
+        container_port = local.port
       }
-
+      startup_probe {
+        period_seconds = 5
+        failure_threshold = 60
+        tcp_socket {
+          port = local.port
+        }
+      }
 
     }
 
@@ -305,7 +311,7 @@ resource "kubernetes_service" "service_workers" {
 
     port {
       name        = "slave"
-      port        = 1099
+      port        = local.port
       target_port = "slave"
     }
     cluster_ip = "None"
