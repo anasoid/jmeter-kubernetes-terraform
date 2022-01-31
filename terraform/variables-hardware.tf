@@ -40,3 +40,14 @@ variable "slave_resources_requests_memory" {
   description = "Describes the minimum amount of memory requests required to the slave jmeter container."
   default     = "512Mi"
 }
+
+
+variable "JMETER_MASTER_JVM_ARGS" {
+  type    = string
+  default = "-Xmx256M -Xms256M"
+}
+
+variable "JMETER_SLAVE_JVM_ARGS" {
+  type    = string
+  default = "-Xmx256M -Xms256M"
+}

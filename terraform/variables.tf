@@ -54,18 +54,7 @@ variable "JMETER_PIPELINE_CLI_ARGUMENTS" {
   description = "Arguments add by pipeline, not by custom environement variable"
 }
 
-#Docker config
-
-
-variable "JMETER_MASTER_JVM_ARGS" {
-  type    = string
-  default = "-Xmx256M -Xms256M"
-}
-
-variable "JMETER_SLAVE_JVM_ARGS" {
-  type    = string
-  default = "-Xmx256M -Xms256M"
-}
+#Jmeter config
 variable "JMETER_PROPERTIES_FILES" {
   type    = string
   default = ""
@@ -98,7 +87,7 @@ variable "JMETER_CONF_EXEC_TIMEOUT" {
 
 variable "JMETER_CONF_COPY_TO_WORKSPACE" {
   type    = string
-  default = "true"
+  default = "false"
 }
 variable "JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX" {
   type    = string
