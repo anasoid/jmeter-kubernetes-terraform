@@ -256,7 +256,7 @@ resource "kubernetes_pod" "slave" {
         container_port = local.port
       }
       startup_probe {
-        period_seconds = 5
+        period_seconds    = 5
         failure_threshold = 60
         tcp_socket {
           port = local.port
