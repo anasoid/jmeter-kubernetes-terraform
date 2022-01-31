@@ -8,6 +8,7 @@ vars:
   output_folder: "../out"
   install_plugins: "true"
   install_list_plugins: ""
+  skip_get_logs_workers: "false"
 
 env:
   TF_VAR_JMETER_WORKERS_COUNT: "{{.worker_count}}"
@@ -212,6 +213,9 @@ tasks:
   get-logs-workers:
     desc: get logs from workers
     dir: ./terraform
+    preconditions:
+      - sh: '[ "{{.skip_get_logs_workers}}" == "false" ]'
+      - msg: "Skip tasks : get logs workers"
     cmds:
       - |
         NAME_SPACE=$(terraform output --raw namespace)
