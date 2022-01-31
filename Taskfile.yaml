@@ -13,6 +13,7 @@ output: prefixed
 
 tasks:
   main-task:
+    desc: main task
     cmds:
       - task: prepare
       - task: copy-project
@@ -20,6 +21,8 @@ tasks:
       - task: get-result-controller
       - task: display-pod-logs
       - task: get-logs-workers
+
+
 
   validate:
     desc: validate Terraform

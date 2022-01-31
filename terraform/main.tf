@@ -45,16 +45,6 @@ locals {
 }
 
 
-#####
-# Randoms
-#####
-
-resource "random_string" "selector" {
-
-  special = false
-  length  = 8
-}
-
 resource "kubernetes_namespace" "jmeter-namespace" {
   metadata {
     name = var.namespace
