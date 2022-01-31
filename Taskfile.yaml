@@ -4,18 +4,19 @@ vars:
   jmx_file: "basic-plan.jmx"
   kubernetes_namespace: "jmeter"
   timeout: "7200"
-  input_folder: "../draft/project"
+  input_folder: "../test/project"
   output_folder: "../out"
   install_plugins: "true"
   install_list_plugins: ""
   skip_get_logs_workers: "false"
+  virtual_users: 3
 
 env:
   TF_VAR_JMETER_WORKERS_COUNT: "{{.worker_count}}"
   TF_VAR_JMETER_CONF_EXEC_TIMEOUT: "{{.timeout}}"
   TF_VAR_namespace: "{{.kubernetes_namespace}}"
   TF_VAR_JMETER_JMX_FILE: "{{.jmx_file}}"
-  TF_VAR_JMETER_PIPELINE_CLI_ARGUMENTS: ""
+  TF_VAR_JMETER_PIPELINE_CLI_ARGUMENTS: " -Jglobal.execution.users={{ .virtual_users }}  "
   TF_VAR_JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX: "{{.install_plugins}}"
   TF_VAR_JMETER_PLUGINS_MANAGER_INSTALL_LIST: "{{.install_list_plugins}}"
   TF_VAR_JMETER_CONF_CSV_SPLIT_PATTERN: "**_split.csv"
@@ -37,6 +38,7 @@ tasks:
       - task: get-result-controller
       - task: display-pod-logs
       - task: get-logs-workers
+
 
   validate:
     desc: validate Terraform
@@ -213,23 +215,22 @@ tasks:
   get-logs-workers:
     desc: get logs from workers
     dir: ./terraform
-    preconditions:
-      - sh: '[ "{{.skip_get_logs_workers}}" == "false" ]'
-      - msg: "Skip tasks : get logs workers"
     cmds:
       - |
-        NAME_SPACE=$(terraform output --raw namespace)
-        WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
-        echo "Start get Result"
-        echo "-----------------------------------------------------------------------------------------------------------------------------"
+        if [ "{{.skip_get_logs_workers}}" == "false"  ]; then
+          NAME_SPACE=$(terraform output --raw namespace)
+          WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+          echo "Start get Result"
 
-        for instance in $WORKER_NAMES; do
-            echo "-----------------------------------------------------------------------------------------------------------------------------"
-            echo "get Result from pod : $instance"
-            echo "kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $LOCAL_JMETER_DIRECTORY_OUTPUT "
-            kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $LOCAL_JMETER_DIRECTORY_OUTPUT 
-        done
-        echo "Start get Result"
+          for instance in $WORKER_NAMES; do
+              echo "get Result from pod : $instance"
+              echo "kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $LOCAL_JMETER_DIRECTORY_OUTPUT "
+              kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $LOCAL_JMETER_DIRECTORY_OUTPUT 
+          done
+          echo "End get Result"
+        else
+          echo "Skip tasks : get logs workers"
+        fi
 
   destroy:
     desc: destroy Terraform

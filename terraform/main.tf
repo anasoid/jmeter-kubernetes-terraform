@@ -200,7 +200,7 @@ resource "kubernetes_pod" "slave" {
       name              = "jmeter"
       image_pull_policy = "IfNotPresent"
 
-      args = [" -Jserver.rmi.ssl.disable=true "]
+      args = [" -Jserver.rmi.ssl.disable=true  ${var.JMETER_EXTRA_CLI_ARGUMENTS} ${var.JMETER_PIPELINE_CLI_ARGUMENTS}"]
 
       resources {
         limits = {
