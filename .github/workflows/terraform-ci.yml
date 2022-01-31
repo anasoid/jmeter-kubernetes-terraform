@@ -1,0 +1,21 @@
+name: Terraform-CI
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Check if the Terraform files are formatted
+        run: terraform fmt -check ./terraform
+
+      - name: Validate Terraform files
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform validate
