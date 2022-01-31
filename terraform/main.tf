@@ -29,14 +29,14 @@ locals {
   }
 
   jmeter_master_envs = {
-    JMETER_JVM_ARGS            = var.JMETER_MASTER_JVM_ARGS
-    JMETER_REPORT_NAME         = var.JMETER_DASHBOARD_FOLDER
-    JMETER_JTL_FILE            = var.JMETER_RESULTS_FILE
+    JMETER_JVM_ARGS    = var.JMETER_MASTER_JVM_ARGS
+    JMETER_REPORT_NAME = var.JMETER_DASHBOARD_FOLDER
+    JMETER_JTL_FILE    = var.JMETER_RESULTS_FILE
 
   }
   jmeter_slave_envs = {
-    CONF_EXEC_IS_SLAVE        = "true"
-    JMETER_JVM_ARGS           = var.JMETER_SLAVE_JVM_ARGS
+    CONF_EXEC_IS_SLAVE = "true"
+    JMETER_JVM_ARGS    = var.JMETER_SLAVE_JVM_ARGS
   }
 
 
