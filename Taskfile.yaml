@@ -196,8 +196,8 @@ tasks:
         for instance in $WORKER_NAMES; do
             echo "-----------------------------------------------------------------------------------------------------------------------------"
             echo "get Result from pod : $instance"
-            echo "kubectl cp -v 0 -n $NAME_SPACE -c jmeter $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT "
-            kubectl cp -v 0 -n $NAME_SPACE -c jmeter $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT 
+            echo "kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT "
+            kubectl cp -v 0 -n $NAME_SPACE -c keepalive $instance:/jmeter/out  $JMETER_DIRECTORY_OUTPUT 
         done
         echo "Start get Result"
 

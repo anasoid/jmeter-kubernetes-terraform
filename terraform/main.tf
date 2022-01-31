@@ -32,13 +32,11 @@ locals {
     JMETER_JVM_ARGS            = var.JMETER_MASTER_JVM_ARGS
     JMETER_REPORT_NAME         = var.JMETER_DASHBOARD_FOLDER
     JMETER_JTL_FILE            = var.JMETER_RESULTS_FILE
-    CONF_EXEC_WAIT_BEFORE_TEST = 10
 
   }
   jmeter_slave_envs = {
     CONF_EXEC_IS_SLAVE        = "true"
     JMETER_JVM_ARGS           = var.JMETER_SLAVE_JVM_ARGS
-    CONF_EXEC_WAIT_AFTER_TEST = 300
   }
 
 
@@ -263,6 +261,42 @@ resource "kubernetes_pod" "slave" {
         }
       }
 
+
+      volume_mount {
+        name       = "out"
+        mount_path = "/jmeter/out"
+
+      }
+    }
+    container {
+      image             = "busybox"
+      name              = "keepalive"
+      image_pull_policy = "IfNotPresent"
+
+      command = ["/bin/sh", "-c", "sleep ${var.JMETER_CONF_EXEC_TIMEOUT}"]
+      resources {
+        limits = {
+          cpu    = "50m"
+          memory = "32Mi"
+        }
+        requests = {
+          cpu    = "10m"
+          memory = "8Mi"
+        }
+      }
+      volume_mount {
+        name       = "out"
+        mount_path = "/jmeter/out"
+
+      }
+
+    }
+
+    volume {
+      name = "out"
+      empty_dir {
+
+      }
     }
 
   }
