@@ -12,6 +12,10 @@ vars:
   virtual_users: 3
   with_logstash: false
   elastic_host: "http://localhost"
+  project_name: "myproject"
+  env_name: "myenv"
+  test_name: "global"
+  exec_name: ""
 
 env:
   TF_VAR_JMETER_WORKERS_COUNT: "{{.worker_count}}"
@@ -28,6 +32,10 @@ env:
   LOCAL_JMETER_DIRECTORY_OUTPUT: "{{.output_folder}}"
   TF_VAR_WITH_LOGSTASH: "{{.with_logstash}}"
   TF_VAR_LOGSTASH_ELASTICSEARCH_HOSTS: "{{.elastic_host}}"
+  TF_VAR_PROJECT_NAME: "{{.project_name}}"
+  TF_VAR_ENVIRONMENT_NAME: "{{.env_name}}"
+  TF_VAR_TEST_NAME: "{{.test_name}}"
+  TF_VAR_EXECUTION_ID: "{{.exec_name}}"
 
 output: prefixed
 

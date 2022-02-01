@@ -41,6 +41,10 @@ locals {
 
   logstash_envs = {
     INPUT_PATH                     = "/input/jtl"
+    PROJECT_NAME                   = var.PROJECT_NAME
+    ENVIRONMENT_NAME               = var.ENVIRONMENT_NAME
+    TEST_NAME                      = var.TEST_NAME
+    EXECUTION_ID                   = var.EXECUTION_ID == "" ? formatdate("YYMMDD-hhmm", timestamp()) : var.EXECUTION_ID
     ELASTICSEARCH_HOSTS            = var.LOGSTASH_ELASTICSEARCH_HOSTS
     ELASTICSEARCH_INDEX            = var.LOGSTASH_ELASTICSEARCH_INDEX
     ELASTICSEARCH_USER             = var.LOGSTASH_ELASTICSEARCH_USER
