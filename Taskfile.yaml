@@ -10,6 +10,8 @@ vars:
   install_list_plugins: ""
   skip_get_logs_workers: "false"
   virtual_users: 3
+  with_logstash: false
+  elastic_host: "http://localhost"
 
 env:
   TF_VAR_JMETER_WORKERS_COUNT: "{{.worker_count}}"
@@ -24,6 +26,8 @@ env:
   TF_VAR_JMETER_PROPERTIES_FILES: ""
   LOCAL_JMETER_DIRECTORY_INPUT: "{{.input_folder}}"
   LOCAL_JMETER_DIRECTORY_OUTPUT: "{{.output_folder}}"
+  TF_VAR_WITH_LOGSTASH: "{{.with_logstash}}"
+  TF_VAR_LOGSTASH_ELASTICSEARCH_HOSTS: "{{.elastic_host}}"
 
 output: prefixed
 
@@ -38,7 +42,7 @@ tasks:
       - task: get-result-controller
       - task: display-pod-logs
       - task: get-logs-workers
-
+      - task: wait-logstash
 
   validate:
     desc: validate Terraform
@@ -232,6 +236,20 @@ tasks:
           echo "Skip tasks : get logs workers"
         fi
 
+  wait-logstash:
+    desc: wait logstash to finish
+    dir: ./terraform
+    cmds:
+      - |
+        if [ "{{.with_logstash}}" == "true"  ]; then
+          NAME_SPACE=$(terraform output --raw namespace)
+           CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+           echo " kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events?pretty' "
+           status=$( kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events' | grep -oP '"in":\K(\d+)') 
+           echo "status -> $status"
+        else
+          echo "Skip tasks : wait logstash"
+        fi
   destroy:
     desc: destroy Terraform
     dir: ./terraform

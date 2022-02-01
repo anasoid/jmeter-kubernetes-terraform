@@ -39,6 +39,20 @@ locals {
     JMETER_JVM_ARGS    = var.JMETER_SLAVE_JVM_ARGS
   }
 
+  logstash_envs = {
+    INPUT_PATH                     = "/input/jtl"
+     ELASTICSEARCH_HOSTS            = var.LOGSTASH_ELASTICSEARCH_HOSTS
+    ELASTICSEARCH_INDEX            = var.LOGSTASH_ELASTICSEARCH_INDEX
+    ELASTICSEARCH_USER             = var.LOGSTASH_ELASTICSEARCH_USER
+    ELASTICSEARCH_PASSWORD         = var.LOGSTASH_ELASTICSEARCH_PASSWORD
+    ELASTICSEARCH_HTTP_COMPRESSION = var.LOGSTASH_ELASTICSEARCH_HTTP_COMPRESSION
+    INFLUXDB_HOST                  = var.LOGSTASH_INFLUXDB_HOST
+    INFLUXDB_PORT                  = var.LOGSTASH_INFLUXDB_PORT
+    INFLUXDB_USER                  = var.LOGSTASH_INFLUXDB_USER
+    INFLUXDB_PASSWORD              = var.LOGSTASH_INFLUXDB_PASSWORD
+    INFLUXDB_DB                    = var.LOGSTASH_INFLUXDB_DB
+    INFLUXDB_MEASUREMENT           = var.LOGSTASH_INFLUXDB_MEASUREMENT
+  }
 
 }
 
@@ -155,6 +169,39 @@ resource "kubernetes_pod" "master" {
 
       }
 
+    }
+
+    dynamic "container" {
+      for_each = var.WITH_LOGSTASH == "true" ? ["1"] : []
+      content {
+        image             = "anasoid/jmeter-logstash"
+        name              = "logstash"
+        image_pull_policy = "IfNotPresent"
+        resources {
+          limits = {
+            cpu    = "1100m"
+            memory = "1024Mi"
+          }
+          requests = {
+            cpu    = "100m"
+            memory = "512Mi"
+          }
+        }
+
+        dynamic "env" {
+          for_each = local.logstash_envs
+
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+        volume_mount {
+          name       = "out"
+          mount_path = "/input"
+
+        }
+      }
     }
 
     volume {
