@@ -245,8 +245,23 @@ tasks:
           NAME_SPACE=$(terraform output --raw namespace)
            CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
            echo " kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events?pretty' "
-           status=$( kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events' | grep -oP '"in":\K(\d+)') 
-           echo "status -> $status"
+           
+           last_status="-1"
+
+          
+           for ((i = 0 ; i <= 100 ; i++)); do
+             status=$( kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events' | grep -oP '"out":\K(\d+)') 
+              echo "Logstash message out number: -> $status"
+              if [ "$last_status" == "$status" ]; then
+                echo "Logstash finished with ($status) messages"
+                break;
+              else
+                last_status=$status
+                echo "Logstash ($i iterations) waiting to finish all message $status ..."
+                sleep 5
+              fi
+              done
+
         else
           echo "Skip tasks : wait logstash"
         fi
