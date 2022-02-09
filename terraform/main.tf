@@ -26,6 +26,7 @@ locals {
     JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX = var.JMETER_PLUGINS_MANAGER_INSTALL_FOR_JMX
     JMETER_PLUGINS_MANAGER_INSTALL_LIST    = var.JMETER_PLUGINS_MANAGER_INSTALL_LIST
     CONF_READY_WAIT_FILE                   = var.JMETER_JMX_FILE
+    CONF_WITH_JOLOKIA                      = var.WITH_JOLOKIA
   }
 
   jmeter_master_envs = {
@@ -58,6 +59,13 @@ locals {
     INFLUXDB_MEASUREMENT           = var.LOGSTASH_INFLUXDB_MEASUREMENT
   }
 
+  metricbeat_envs = {
+    ELASTICSEARCH_HOSTS    = var.METRICBEAT_ELASTICSEARCH_HOSTS
+    ELASTICSEARCH_USERNAME = var.METRICBEAT_ELASTICSEARCH_USER
+    ELASTICSEARCH_PASSWORD = var.METRICBEAT_ELASTICSEARCH_PASSWORD
+
+  }
+
 }
 
 
@@ -66,6 +74,22 @@ resource "kubernetes_namespace" "jmeter-namespace" {
     name = var.namespace
   }
 }
+
+resource "kubernetes_config_map" "metricbeat_config" {
+
+  metadata {
+    name      = "metricbeat-config"
+    namespace = var.namespace
+  }
+
+  data = {
+
+    "metricbeat.yml" = "${file("${path.module}/metricbeat/metricbeat.yml")}"
+    "jolokia.yml"    = "${file("${path.module}/metricbeat/jolokia.yml")}"
+  }
+
+}
+
 #####
 # Deployment
 #####
@@ -178,7 +202,7 @@ resource "kubernetes_pod" "master" {
     dynamic "container" {
       for_each = var.WITH_LOGSTASH == "true" ? ["1"] : []
       content {
-        image             = "anasoid/jmeter-logstash"
+        image             = "anasoid/jmeter-logstash:${var.LOGSTASH_IMAGE_VERSION}"
         name              = "logstash"
         image_pull_policy = "IfNotPresent"
         resources {
@@ -208,9 +232,56 @@ resource "kubernetes_pod" "master" {
       }
     }
 
+    dynamic "container" {
+      for_each = var.WITH_JOLOKIA == "true" ? ["1"] : []
+      content {
+        image             = "docker.elastic.co/beats/metricbeat:${var.METRICBEAT_IMAGE_VERSION}"
+        name              = "metricbeat"
+        image_pull_policy = "IfNotPresent"
+        resources {
+          limits = {
+            memory = "200Mi"
+          }
+          requests = {
+            cpu    = "100m"
+            memory = "100Mi"
+          }
+        }
+
+        dynamic "env" {
+          for_each = local.metricbeat_envs
+
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+        volume_mount {
+          name       = "metricbeat-config"
+          mount_path = "/usr/share/metricbeat/metricbeat.yml"
+          sub_path   = "metricbeat.yml"
+
+        }
+        volume_mount {
+          name       = "metricbeat-config"
+          mount_path = "/usr/share/metricbeat/modules.d/jolokia.yml"
+          sub_path   = "jolokia.yml"
+
+        }
+
+      }
+    }
     volume {
       name = "out"
       empty_dir {
+
+      }
+    }
+    volume {
+      name = "metricbeat-config"
+      config_map {
+
+        name = "metricbeat-config"
 
       }
     }

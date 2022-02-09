@@ -11,6 +11,7 @@ vars:
   skip_get_logs_workers: "false"
   virtual_users: 3
   with_logstash: false
+  with_jmx: false
   elastic_host: "http://localhost"
   project_name: "myproject"
   env_name: "myenv"
@@ -31,7 +32,9 @@ env:
   LOCAL_JMETER_DIRECTORY_INPUT: "{{.input_folder}}"
   LOCAL_JMETER_DIRECTORY_OUTPUT: "{{.output_folder}}"
   TF_VAR_WITH_LOGSTASH: "{{.with_logstash}}"
+  TF_VAR_WITH_JOLOKIA: "{{.with_jmx}}"
   TF_VAR_LOGSTASH_ELASTICSEARCH_HOSTS: "{{.elastic_host}}"
+  TF_VAR_METRICBEAT_ELASTICSEARCH_HOSTS: "{{.elastic_host}}"
   TF_VAR_PROJECT_NAME: "{{.project_name}}"
   TF_VAR_ENVIRONMENT_NAME: "{{.env_name}}"
   TF_VAR_TEST_NAME: "{{.test_name}}"

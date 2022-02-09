@@ -20,7 +20,7 @@ variable "JMETER_WORKERS_COUNT" {
 variable "image_version" {
   description = "Docker image tag to use for jmeter."
   type        = string
-  default     = "5.4-plugins"
+  default     = "latest-plugins-11-jdk"
 }
 
 variable "image" {
