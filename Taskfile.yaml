@@ -54,6 +54,7 @@ tasks:
       - task: get-result-controller
       - task: display-pod-logs
       - task: get-logs-workers
+      - task: stop-keepalive
       - task: wait-logstash
 
   validate:
@@ -266,6 +267,31 @@ tasks:
           echo "Skip tasks : get logs workers"
         fi
 
+  stop-keepalive :
+    desc: get logs from workers
+    dir: ./terraform
+    cmds:
+      - |
+      
+          NAME_SPACE=$(terraform output --raw namespace)
+          CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+          WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+          echo "Start stop keepalive"
+
+          echo "Stop keepalive : $CONTROLLER_NAME"
+          sleeppid=$(kubectl exec -n $NAME_SPACE  -c keepalive $CONTROLLER_NAME -- pidof sleep)
+          echo "Killing  $CONTROLLER_NAME($sleeppid)"
+          kubectl exec  -n $NAME_SPACE -c keepalive $CONTROLLER_NAME -- kill -15 $sleeppid &
+
+          for instance in $WORKER_NAMES; do
+              echo "Stop keepalive : $instance"
+              sleeppid=$(kubectl exec -n $NAME_SPACE  -c keepalive $instance -- pidof sleep)
+              echo "Killing  $instance($sleeppid)"
+              kubectl exec  -n $NAME_SPACE -c keepalive $instance -- kill -15 $sleeppid &
+          done
+          echo "End stop keepalive"
+      
+
   wait-logstash:
     desc: wait logstash to finish
     dir: ./terraform
@@ -290,7 +316,13 @@ tasks:
                 echo "Logstash ($i iterations) waiting to finish all message $status ..."
                 sleep 5
               fi
-              done
+            done
+
+           echo "Start stop  logstash"
+           logstashpid=$(kubectl exec -n $NAME_SPACE  -c logstash    $CONTROLLER_NAME -- ps ax | grep logstash | grep -v grep | awk '{print $1}')
+           echo "Killing  metricbeat($logstashpid)"
+           kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- kill -15 $logstashpid
+           echo "End stop logstash"
 
         else
           echo "Skip tasks : wait logstash"

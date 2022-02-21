@@ -190,7 +190,7 @@ resource "kubernetes_pod" "master" {
       name              = "keepalive"
       image_pull_policy = "IfNotPresent"
 
-      command = ["/bin/sh", "-c", "sleep ${var.JMETER_CONF_EXEC_TIMEOUT}"]
+      command = ["/bin/sh", "-c", "sleep ${var.JMETER_CONF_EXEC_TIMEOUT} & wait"]
       resources {
         limits = {
           cpu    = "50m"
@@ -364,7 +364,7 @@ resource "kubernetes_pod" "slave" {
       name              = "keepalive"
       image_pull_policy = "IfNotPresent"
 
-      command = ["/bin/sh", "-c", "sleep ${var.JMETER_CONF_EXEC_TIMEOUT}"]
+      command = ["/bin/sh", "-c", "sleep ${var.JMETER_CONF_EXEC_TIMEOUT} & wait"]
       resources {
         limits = {
           cpu    = "50m"
