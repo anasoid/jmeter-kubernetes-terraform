@@ -10,7 +10,8 @@ locals {
     name       = "jmeter"
     part-of    = "jmeter"
   }
-  port = 1099
+  port_rmi     = 1099
+  port_jolokia = 8778
 
   jmeter_envs = {
     CONF_EXEC_WORKER_COUNT                 = var.JMETER_WORKERS_COUNT
@@ -85,7 +86,6 @@ resource "kubernetes_config_map" "metricbeat_config" {
   data = {
 
     "metricbeat.yml" = "${file("${path.module}/metricbeat/metricbeat.yml")}"
-    "jolokia.yml"    = "${file("${path.module}/metricbeat/jolokia.yml")}"
   }
 
 }
@@ -165,8 +165,18 @@ resource "kubernetes_pod" "master" {
         }
       }
 
+      env {
+        name  = "JOLOKIA_HOSTS"
+        value = "${kubernetes_service.service_controller.metadata.0.name}.${var.namespace}:${local.port_jolokia},${join(",", [for s in kubernetes_service.service_workers.*.metadata.0.name : "${s}.${var.namespace}:${local.port_jolokia}"])}"
+      }
+
       port {
-        container_port = local.port
+        container_port = local.port_rmi
+      }
+
+      port {
+        name           = "jolokia"
+        container_port = local.port_jolokia
       }
 
       volume_mount {
@@ -232,56 +242,10 @@ resource "kubernetes_pod" "master" {
       }
     }
 
-    dynamic "container" {
-      for_each = var.WITH_JOLOKIA == "true" ? ["1"] : []
-      content {
-        image             = "docker.elastic.co/beats/metricbeat:${var.METRICBEAT_IMAGE_VERSION}"
-        name              = "metricbeat"
-        image_pull_policy = "IfNotPresent"
-        resources {
-          limits = {
-            memory = "200Mi"
-          }
-          requests = {
-            cpu    = "100m"
-            memory = "100Mi"
-          }
-        }
 
-        dynamic "env" {
-          for_each = local.metricbeat_envs
-
-          content {
-            name  = env.key
-            value = env.value
-          }
-        }
-        volume_mount {
-          name       = "metricbeat-config"
-          mount_path = "/usr/share/metricbeat/metricbeat.yml"
-          sub_path   = "metricbeat.yml"
-
-        }
-        volume_mount {
-          name       = "metricbeat-config"
-          mount_path = "/usr/share/metricbeat/modules.d/jolokia.yml"
-          sub_path   = "jolokia.yml"
-
-        }
-
-      }
-    }
     volume {
       name = "out"
       empty_dir {
-
-      }
-    }
-    volume {
-      name = "metricbeat-config"
-      config_map {
-
-        name = "metricbeat-config"
 
       }
     }
@@ -372,14 +336,19 @@ resource "kubernetes_pod" "slave" {
       }
 
       port {
-        name           = "slave"
-        container_port = local.port
+        name           = "rmi"
+        container_port = local.port_rmi
       }
+      port {
+        name           = "jolokia"
+        container_port = local.port_jolokia
+      }
+
       startup_probe {
         period_seconds    = 5
         failure_threshold = 60
         tcp_socket {
-          port = local.port
+          port = local.port_rmi
         }
       }
 
@@ -456,10 +425,128 @@ resource "kubernetes_service" "service_workers" {
     }
 
     port {
-      name        = "slave"
-      port        = local.port
-      target_port = "slave"
+      name        = "rmi"
+      port        = local.port_rmi
+      target_port = "rmi"
+    }
+    port {
+      name        = "jolokia"
+      port        = local.port_jolokia
+      target_port = "jolokia"
     }
     cluster_ip = "None"
   }
+}
+
+resource "kubernetes_service" "service_controller" {
+  metadata {
+    name      = "${var.PREFIX}-service-controller"
+    namespace = var.namespace
+    labels = merge(
+      {
+        instance  = "${var.PREFIX}-service-controller"
+        component = "network"
+      },
+      local.labels,
+      var.labels,
+      var.service_labels
+    )
+    annotations = merge(
+      {},
+      local.annotations,
+      var.annotations,
+      var.service_annotations
+    )
+  }
+  spec {
+    selector = {
+      instance = "${var.PREFIX}-controller"
+    }
+
+    port {
+      name        = "rmi"
+      port        = local.port_rmi
+      target_port = "rmi"
+    }
+    port {
+      name        = "jolokia"
+      port        = local.port_jolokia
+      target_port = "jolokia"
+    }
+    cluster_ip = "None"
+  }
+}
+
+
+#METRIC BEAT
+resource "kubernetes_pod" "metricbeat" {
+
+  depends_on = [
+    kubernetes_service.service_workers
+  ]
+  metadata {
+    name      = "${var.PREFIX}-metricbeat"
+    namespace = var.namespace
+    labels = merge(
+      {
+        instance  = "${var.PREFIX}-metricbeat"
+        component = "metricbeat"
+      }
+    )
+
+  }
+  spec {
+
+    restart_policy = "Never"
+    dynamic "container" {
+      for_each = var.WITH_JOLOKIA == "true" ? ["1"] : []
+      content {
+        image             = "docker.elastic.co/beats/metricbeat:${var.METRICBEAT_IMAGE_VERSION}"
+        name              = "metricbeat"
+        image_pull_policy = "IfNotPresent"
+        resources {
+          limits = {
+            memory = "200Mi"
+          }
+          requests = {
+            cpu    = "100m"
+            memory = "100Mi"
+          }
+        }
+
+        dynamic "env" {
+          for_each = local.metricbeat_envs
+
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+        env {
+          name  = "JOLOKIA_HOSTS"
+          value = "${kubernetes_service.service_controller.metadata.0.name}.${var.namespace}:${local.port_jolokia},${join(",", [for s in kubernetes_service.service_workers.*.metadata.0.name : "${s}.${var.namespace}:${local.port_jolokia}"])}"
+        }
+
+        volume_mount {
+          name       = "metricbeat-config-volume"
+          mount_path = "/usr/share/metricbeat/metricbeat.yml"
+          sub_path   = "metricbeat.yml"
+
+        }
+
+      }
+    }
+    volume {
+      name = "metricbeat-config-volume"
+      config_map {
+
+        name = "metricbeat-config"
+
+      }
+    }
+  }
+
+
+
+
 }
