@@ -49,6 +49,7 @@ tasks:
       - task: prepare
       - task: copy-project
       - task: wait-test-follow
+      - task: stop-metricbeat 
       - task: check-jmeter-exitcode
       - task: get-result-controller
       - task: display-pod-logs
@@ -167,6 +168,24 @@ tasks:
           sleep 20
         done
         echo "$(date): End!"
+
+  stop-metricbeat:
+    desc: stop metricbeat pod
+    dir: ./terraform
+    cmds:
+      - |
+        if [ "{{.with_jmx}}" != "false"  ]; then
+          NAME_SPACE=$(terraform output --raw namespace)
+          METRICBEAT_NAME=$(terraform output --raw metricbeat_name)
+          echo "Start stop  metricbeat"
+           kubectl exec -n $NAME_SPACE  $METRICBEAT_NAME -- ps -aux
+           metricpid=$(kubectl exec -n $NAME_SPACE  $METRICBEAT_NAME -- pidof metricbeat)
+           echo "Killing  metricbeat($metricpid)"
+           kubectl exec -n $NAME_SPACE  $METRICBEAT_NAME -- kill -15 $metricpid
+          echo "End stop metricbeat"
+        else
+          echo "Skip tasks : stop-metricbeat"
+        fi
 
   check-jmeter-exitcode:
     desc: copy project to
