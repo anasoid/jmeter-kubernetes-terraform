@@ -10,6 +10,13 @@ vars:
   install_list_plugins: ""
   skip_get_logs_workers: "false"
   virtual_users: 3
+  with_logstash: false
+  with_jmx: false
+  elastic_host: "http://localhost"
+  project_name: "myproject"
+  env_name: "myenv"
+  test_name: "global"
+  exec_name: ""
 
 env:
   TF_VAR_JMETER_WORKERS_COUNT: "{{.worker_count}}"
@@ -24,6 +31,14 @@ env:
   TF_VAR_JMETER_PROPERTIES_FILES: ""
   LOCAL_JMETER_DIRECTORY_INPUT: "{{.input_folder}}"
   LOCAL_JMETER_DIRECTORY_OUTPUT: "{{.output_folder}}"
+  TF_VAR_WITH_LOGSTASH: "{{.with_logstash}}"
+  TF_VAR_WITH_JOLOKIA: "{{.with_jmx}}"
+  TF_VAR_LOGSTASH_ELASTICSEARCH_HOSTS: "{{.elastic_host}}"
+  TF_VAR_METRICBEAT_ELASTICSEARCH_HOSTS: "{{.elastic_host}}"
+  TF_VAR_PROJECT_NAME: "{{.project_name}}"
+  TF_VAR_ENVIRONMENT_NAME: "{{.env_name}}"
+  TF_VAR_TEST_NAME: "{{.test_name}}"
+  TF_VAR_EXECUTION_ID: "{{.exec_name}}"
 
 output: prefixed
 
@@ -34,11 +49,13 @@ tasks:
       - task: prepare
       - task: copy-project
       - task: wait-test-follow
+      - task: stop-metricbeat 
       - task: check-jmeter-exitcode
       - task: get-result-controller
       - task: display-pod-logs
       - task: get-logs-workers
-
+      - task: stop-keepalive
+      - task: wait-logstash
 
   validate:
     desc: validate Terraform
@@ -153,6 +170,24 @@ tasks:
         done
         echo "$(date): End!"
 
+  stop-metricbeat:
+    desc: stop metricbeat pod
+    dir: ./terraform
+    cmds:
+      - |
+        if [ "{{.with_jmx}}" != "false"  ]; then
+          NAME_SPACE=$(terraform output --raw namespace)
+          METRICBEAT_NAME=$(terraform output --raw metricbeat_name)
+          echo "Start stop  metricbeat"
+           kubectl exec -n $NAME_SPACE  $METRICBEAT_NAME -- ps -aux
+           metricpid=$(kubectl exec -n $NAME_SPACE  $METRICBEAT_NAME -- pidof metricbeat)
+           echo "Killing  metricbeat($metricpid)"
+           kubectl exec -n $NAME_SPACE  $METRICBEAT_NAME -- kill -15 $metricpid
+          echo "End stop metricbeat"
+        else
+          echo "Skip tasks : stop-metricbeat"
+        fi
+
   check-jmeter-exitcode:
     desc: copy project to
     dir: ./terraform
@@ -232,6 +267,66 @@ tasks:
           echo "Skip tasks : get logs workers"
         fi
 
+  stop-keepalive :
+    desc: get logs from workers
+    dir: ./terraform
+    cmds:
+      - |
+      
+          NAME_SPACE=$(terraform output --raw namespace)
+          CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+          WORKER_NAMES=$(terraform output --raw jmeter_workers_names)
+          echo "Start stop keepalive"
+
+          echo "Stop keepalive : $CONTROLLER_NAME"
+          sleeppid=$(kubectl exec -n $NAME_SPACE  -c keepalive $CONTROLLER_NAME -- pidof sleep)
+          echo "Killing  $CONTROLLER_NAME($sleeppid)"
+          kubectl exec  -n $NAME_SPACE -c keepalive $CONTROLLER_NAME -- kill -15 $sleeppid &
+
+          for instance in $WORKER_NAMES; do
+              echo "Stop keepalive : $instance"
+              sleeppid=$(kubectl exec -n $NAME_SPACE  -c keepalive $instance -- pidof sleep)
+              echo "Killing  $instance($sleeppid)"
+              kubectl exec  -n $NAME_SPACE -c keepalive $instance -- kill -15 $sleeppid &
+          done
+          echo "End stop keepalive"
+      
+
+  wait-logstash:
+    desc: wait logstash to finish
+    dir: ./terraform
+    cmds:
+      - |
+        if [ "{{.with_logstash}}" == "true"  ]; then
+          NAME_SPACE=$(terraform output --raw namespace)
+           CONTROLLER_NAME=$(terraform output --raw jmeter_controller_name)
+           echo " kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events?pretty' "
+           
+           last_status="-1"
+
+          
+           for ((i = 0 ; i <= 100 ; i++)); do
+             status=$( kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- curl -s 'localhost:9600/_node/stats/events' | grep -oP '"out":\K(\d+)') 
+              echo "Logstash message out number: -> $status"
+              if [ "$last_status" == "$status" ]; then
+                echo "Logstash finished with ($status) messages"
+                break;
+              else
+                last_status=$status
+                echo "Logstash ($i iterations) waiting to finish all message $status ..."
+                sleep 5
+              fi
+            done
+
+           echo "Start stop  logstash"
+           logstashpid=$(kubectl exec -n $NAME_SPACE  -c logstash    $CONTROLLER_NAME -- ps ax | grep logstash | grep -v grep | awk '{print $1}')
+           echo "Killing  metricbeat($logstashpid)"
+           kubectl exec -n $NAME_SPACE -c logstash    $CONTROLLER_NAME -- kill -15 $logstashpid
+           echo "End stop logstash"
+
+        else
+          echo "Skip tasks : wait logstash"
+        fi
   destroy:
     desc: destroy Terraform
     dir: ./terraform

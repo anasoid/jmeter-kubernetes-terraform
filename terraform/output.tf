@@ -37,3 +37,7 @@ output "jmeter_workers_names" {
 output "jmeter_controller_name" {
   value = kubernetes_pod.master.metadata.0.name
 }
+
+output "metricbeat_name" {
+  value = kubernetes_pod.metricbeat.metadata.0.name
+}
